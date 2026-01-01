@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodeapp-deployment
+  namespace: devsecops-task
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nodeapp
+  template:
+    metadata:
+      labels:
+        app: nodeapp
+    spec:
+      securityContext:
+        # Task Requirement: Non-root user 
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: nodeapp
+        image: nodeapp:dev
+        imagePullPolicy: Never # Critical for local 'kind' clusters
+        ports:
+        - containerPort: 3000
+        securityContext:
+          # Task Requirement: Privilege escalation disabled 
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          # Task Requirement: Resource limits and requests 
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"

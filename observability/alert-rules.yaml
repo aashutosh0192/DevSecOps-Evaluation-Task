@@ -1,0 +1,23 @@
+# alert-rules.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-rules
+  namespace: monitoring
+data:
+  rules.yml: |
+    groups:
+    - name: basic-alerts
+      rules:
+      - alert: HighPodRestarts
+        expr: increase(kube_pod_container_status_restarts_total[10m]) > 3
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          description: "Pod {{ $labels.pod }} restarted more than 3 times in 10m."
+      - alert: HighCPUNodeApp
+        expr: sum(rate(container_cpu_usage_seconds_total{pod=~"nodeapp.*"}[2m])) > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          description: "Node app CPU > 0.5 cores for 5m."

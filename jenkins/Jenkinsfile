@@ -1,0 +1,42 @@
+pipeline {
+  agent any
+  environment {
+    REGISTRY = "localhost:5000"
+    IMAGE = "nodeapp"
+    TAG = "dev"
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+    stage('SAST - Semgrep') {
+      steps {
+        sh 'semgrep --config p/ci --error --json > .ci/semgrep.json || true'
+        sh '''
+          jq -e '.results | map(select(.severity=="ERROR" or .severity=="WARNING")) | length == 0' .ci/semgrep.json \
+          || { echo "Semgrep issues found"; exit 1; }
+        '''
+      }
+    }
+    stage('Build Image') {
+      steps {
+        sh 'docker build -t $REGISTRY/$IMAGE:$TAG docker/'
+      }
+    }
+    stage('Container Scan - Trivy') {
+      steps {
+        sh 'trivy image --exit-code 1 --severity CRITICAL,HIGH $REGISTRY/$IMAGE:$TAG | tee docker/trivy-image-ci.txt'
+      }
+    }
+    stage('Push if clean') {
+      steps {
+        sh 'docker push $REGISTRY/$IMAGE:$TAG'
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'docker/trivy-image-ci.txt,.ci/semgrep.json', fingerprint: true
+    }
+  }
+}
